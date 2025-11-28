@@ -1,0 +1,5 @@
+{
+  "name": "GenShop",
+  "description": "Professional e-commerce main image generator using Gemini 3 Pro for creation and Gemini 2.5 Flash for editing.",
+  "requestFramePermissions": []
+}
