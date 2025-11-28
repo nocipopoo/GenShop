@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Wand2, 
   Download, 
@@ -13,8 +13,17 @@ import {
 import { AppState, CopyMode, AspectRatio, CATEGORY_TAGS } from './types';
 import { ImageUpload } from './components/ImageUpload';
 import { generateMainImage, editGeneratedImage } from './services/geminiService';
+import { supabase } from './lib/supabase';
+import { Auth } from './components/Auth';
+import { UserMenu } from './components/UserMenu';
+import { saveGeneration, updateGeneration } from './services/databaseService';
+import type { User as SupabaseUser } from '@supabase/supabase-js';
 
 const App: React.FC = () => {
+  const [user, setUser] = useState<SupabaseUser | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [currentGenerationId, setCurrentGenerationId] = useState<string | null>(null);
+
   const [state, setState] = useState<AppState>({
     mainCopy: '',
     subCopy: '',
@@ -32,17 +41,56 @@ const App: React.FC = () => {
 
   const [editInput, setEditInput] = useState('');
 
+  useEffect(() => {
+    // Check active session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      setLoading(false);
+    });
+
+    // Listen for auth changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
   const handleGenerate = async () => {
+    if (!user) {
+      setState(prev => ({ ...prev, error: "Please sign in to generate images." }));
+      return;
+    }
+
     if (!state.productImage) {
       setState(prev => ({ ...prev, error: "Please upload a product image." }));
       return;
     }
     
     setState(prev => ({ ...prev, isGenerating: true, error: null, generatedImage: null }));
+    setCurrentGenerationId(null);
 
     try {
-      const imageUrl = await generateMainImage(state);
+      const imageUrl = await generateMainImage(state, user.id);
       setState(prev => ({ ...prev, generatedImage: imageUrl }));
+
+      // Save to database
+      const generation = await saveGeneration(
+        user.id,
+        imageUrl,
+        null,
+        {
+          mainCopy: state.mainCopy,
+          subCopy: state.subCopy,
+          copyMode: state.copyMode,
+          aspectRatio: state.aspectRatio,
+          selectedTag: state.selectedTag,
+          customPrompt: state.customPrompt,
+        }
+      );
+      setCurrentGenerationId(generation.id);
     } catch (err: any) {
       setState(prev => ({ ...prev, error: err.message || "Generation failed" }));
     } finally {
@@ -51,13 +99,25 @@ const App: React.FC = () => {
   };
 
   const handleEdit = async () => {
+    if (!user) {
+      setState(prev => ({ ...prev, error: "Please sign in to edit images." }));
+      return;
+    }
+
     if (!state.generatedImage || !editInput) return;
     
     setState(prev => ({ ...prev, isEditing: true, error: null }));
     try {
-      const newUrl = await editGeneratedImage(state.generatedImage, editInput);
+      const newUrl = await editGeneratedImage(state.generatedImage, editInput, user.id);
       setState(prev => ({ ...prev, generatedImage: newUrl }));
       setEditInput('');
+
+      // Update generation record if it exists
+      if (currentGenerationId) {
+        await updateGeneration(currentGenerationId, {
+          image_url: newUrl,
+        });
+      }
     } catch (err: any) {
       setState(prev => ({ ...prev, error: err.message || "Edit failed" }));
     } finally {
@@ -79,6 +139,19 @@ const App: React.FC = () => {
     setState(prev => ({ ...prev, ...updates }));
   };
 
+  // Show auth screen if not logged in
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-zinc-400">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Auth onAuthSuccess={() => {}} />;
+  }
+
   return (
     <div className="min-h-screen bg-background text-zinc-100 font-sans selection:bg-primary selection:text-white">
       {/* Header */}
@@ -96,6 +169,11 @@ const App: React.FC = () => {
             <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">
               Billing Info
             </a>
+            <UserMenu user={user} onSignOut={() => {
+              setUser(null);
+              setState(prev => ({ ...prev, generatedImage: null }));
+              setCurrentGenerationId(null);
+            }} />
           </div>
         </div>
       </header>

@@ -1,5 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import { AppState, CopyMode } from "../types";
+import { uploadImage } from "./storageService";
 
 // Helper to strip base64 header if present
 const stripBase64Header = (base64: string) => {
@@ -15,7 +16,7 @@ const getApiKey = (): string => {
   return apiKey;
 };
 
-export const generateMainImage = async (state: AppState): Promise<string> => {
+export const generateMainImage = async (state: AppState, userId: string): Promise<string> => {
   const apiKey = getApiKey();
 
   const ai = new GoogleGenAI({ apiKey });
@@ -87,16 +88,34 @@ export const generateMainImage = async (state: AppState): Promise<string> => {
   });
 
   // Extract Image
+  let base64Image: string | null = null;
   for (const part of response.candidates?.[0]?.content?.parts || []) {
     if (part.inlineData) {
-      return `data:image/png;base64,${part.inlineData.data}`;
+      base64Image = `data:image/png;base64,${part.inlineData.data}`;
+      break;
     }
   }
 
-  throw new Error("No image generated.");
+  if (!base64Image) {
+    throw new Error("No image generated.");
+  }
+
+  // Upload to Supabase Storage and return public URL
+  try {
+    const publicUrl = await uploadImage(userId, base64Image);
+    return publicUrl;
+  } catch (error: any) {
+    // If upload fails, return base64 as fallback
+    console.error('Failed to upload to storage:', error);
+    return base64Image;
+  }
 };
 
-export const editGeneratedImage = async (currentImage: string, editInstruction: string): Promise<string> => {
+export const editGeneratedImage = async (
+  currentImage: string,
+  editInstruction: string,
+  userId: string
+): Promise<string> => {
   const apiKey = getApiKey();
 
   const ai = new GoogleGenAI({ apiKey });
@@ -121,11 +140,25 @@ export const editGeneratedImage = async (currentImage: string, editInstruction: 
     // but for editing we rely on the input image context.
   });
 
+  let base64Image: string | null = null;
   for (const part of response.candidates?.[0]?.content?.parts || []) {
     if (part.inlineData) {
-      return `data:image/png;base64,${part.inlineData.data}`;
+      base64Image = `data:image/png;base64,${part.inlineData.data}`;
+      break;
     }
   }
 
-  throw new Error("Image edit failed.");
+  if (!base64Image) {
+    throw new Error("Image edit failed.");
+  }
+
+  // Upload to Supabase Storage and return public URL
+  try {
+    const publicUrl = await uploadImage(userId, base64Image);
+    return publicUrl;
+  } catch (error: any) {
+    // If upload fails, return base64 as fallback
+    console.error('Failed to upload to storage:', error);
+    return base64Image;
+  }
 };
