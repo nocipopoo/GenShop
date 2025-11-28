@@ -2,19 +2,39 @@
 <img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
 </div>
 
-# Run and deploy your AI Studio app
+# GenShop - AI 电商图片生成工具
 
-This contains everything you need to run your app locally.
+使用 Gemini API 生成专业的电商产品主图。
 
-View your app in AI Studio: https://ai.studio/apps/drive/18ZBa4hPYHKBXPlpZmUOPi7La7g6qIO6t
+## 本地运行
 
-## Run Locally
+**前置要求:** Node.js
 
-**Prerequisites:**  Node.js
+1. 安装依赖:
+   ```bash
+   npm install
+   ```
 
+2. 创建 `.env.local` 文件并设置环境变量:
+   ```bash
+   VITE_GEMINI_API_KEY=your_gemini_api_key_here
+   ```
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+3. 运行应用:
+   ```bash
+   npm run dev
+   ```
+
+## 部署到 Vercel
+
+1. 将项目推送到 GitHub
+
+2. 在 [Vercel](https://vercel.com) 导入项目
+
+3. 在 Vercel 项目设置中添加环境变量:
+   - 变量名: `VITE_GEMINI_API_KEY`
+   - 值: 你的 Gemini API Key
+
+4. 部署完成后，Vercel 会自动构建并部署应用
+
+**注意:** 由于这是纯前端应用，API Key 会暴露在客户端代码中。请确保你接受此风险，或考虑使用后端代理来保护 API Key。

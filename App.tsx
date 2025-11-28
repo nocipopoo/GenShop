@@ -38,20 +38,6 @@ const App: React.FC = () => {
       return;
     }
     
-    // Check API Key first
-    if (window.aistudio) {
-        try {
-            const hasKey = await window.aistudio.hasSelectedApiKey();
-            if (!hasKey) {
-                 await window.aistudio.openSelectKey();
-            }
-        } catch (e) {
-            console.error(e);
-            setState(prev => ({ ...prev, error: "API Key selection failed." }));
-            return;
-        }
-    }
-
     setState(prev => ({ ...prev, isGenerating: true, error: null, generatedImage: null }));
 
     try {
@@ -107,14 +93,6 @@ const App: React.FC = () => {
             </h1>
           </div>
           <div className="flex items-center gap-4 text-sm text-zinc-400">
-            {window.aistudio && (
-               <button 
-                onClick={() => window.aistudio?.openSelectKey()} 
-                className="hover:text-white transition-colors"
-               >
-                 API Settings
-               </button>
-            )}
             <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">
               Billing Info
             </a>

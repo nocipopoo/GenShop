@@ -6,21 +6,17 @@ const stripBase64Header = (base64: string) => {
   return base64.replace(/^data:image\/(png|jpeg|jpg|webp);base64,/, '');
 };
 
-const getApiKey = async (): Promise<string> => {
-  // Use the window.aistudio wrapper as per instructions for paid keys
-  if (window.aistudio && window.aistudio.openSelectKey) {
-     const hasKey = await window.aistudio.hasSelectedApiKey();
-     if (!hasKey) {
-        await window.aistudio.openSelectKey();
-     }
+const getApiKey = (): string => {
+  // Get API Key from environment variable (Vercel will inject this)
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.GEMINI_API_KEY || '';
+  if (!apiKey) {
+    throw new Error("GEMINI_API_KEY environment variable is not set. Please configure it in Vercel.");
   }
-  // The key is injected into process.env.API_KEY after selection
-  return process.env.API_KEY || '';
+  return apiKey;
 };
 
 export const generateMainImage = async (state: AppState): Promise<string> => {
-  const apiKey = await getApiKey();
-  if (!apiKey) throw new Error("API Key selection failed or cancelled.");
+  const apiKey = getApiKey();
 
   const ai = new GoogleGenAI({ apiKey });
   
@@ -101,8 +97,7 @@ export const generateMainImage = async (state: AppState): Promise<string> => {
 };
 
 export const editGeneratedImage = async (currentImage: string, editInstruction: string): Promise<string> => {
-  const apiKey = await getApiKey();
-  if (!apiKey) throw new Error("API Key required.");
+  const apiKey = getApiKey();
 
   const ai = new GoogleGenAI({ apiKey });
 
